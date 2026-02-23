@@ -9,10 +9,11 @@ from PIL import Image
 def lambda_handler(event, context):
     body = json.loads(event["body"])
     image_base64 = body["base64image"]
-
+    is_corrupted = is_image_corrupted(image_base64)
+    print("is image corrupted", is_corrupted)
     return {
         "statusCode": 200,
-        "body": json.dumps({"isCorrupted": is_image_corrupted(image_base64)})
+        "body": json.dumps({"isCorrupted": is_corrupted})
     }
 
 
