@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Image Validator API
+
+Parameters:
+  Env:
+    Type: String
+
+Resources:
+  ImageValidatorAPIFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      MemorySize: 512
+      Timeout: 90
+      FunctionUrlConfig:
+        AuthType: NONE
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./main
+      DockerTag: python3.12
+
+Outputs:
+  ImageValidatorAPIFunctionEndpoint:
+    Description: "URL Endpoint"
+    Value: !GetAtt ImageValidatorAPIFunctionUrl.FunctionUrl
