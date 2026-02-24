@@ -19,14 +19,14 @@ def lambda_handler(event, context):
 
 def is_image_corrupted(base64_img):
     try:
-        # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
         if ',' in base64_img:
             base64_img = base64_img.split(',')[1]
 
-        # Decode base64 to bytes and convert bytes to image
         img_bytes = base64.b64decode(base64_img)
-        img = Image.open(io.BytesIO(img_bytes))
-        if image_contains_failed_text(img) or is_img_blank(img):
+        img_text = Image.open(io.BytesIO(img_bytes))
+        img_blank = np.array(img_text)
+
+        if image_contains_failed_text(img_text) or is_img_blank(img_blank):
             return True
         return False
 
