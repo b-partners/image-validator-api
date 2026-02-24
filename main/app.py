@@ -26,7 +26,11 @@ def is_image_corrupted(base64_img):
         img_text = Image.open(io.BytesIO(img_bytes))
         img_blank = np.array(img_text)
 
-        if image_contains_failed_text(img_text) or is_img_blank(img_blank):
+        if image_contains_failed_text(img_text) :
+            print("Image contains failed text")
+            return True
+        if is_img_blank(img_blank):
+            print("Image is blank")
             return True
         return False
 
@@ -37,14 +41,13 @@ def is_image_corrupted(base64_img):
 
 
 def image_contains_failed_text(img):
-    failed_keywords = ("failed", "wmts")
     """
     Retourne True si le texte OCRisé de l'image contient l'un des mots-clés indiquant un échec.
     """
+    failed_keywords = ("failed", "wmts")
     gray = img.convert("L")
-    bw = gray.point(lambda x: 0 if x < 200 else 255, mode="1")
-
-    try_text = pytesseract.image_to_string(bw)
+    custom_config = r'--oem 3 --psm 6'
+    try_text = pytesseract.image_to_string(gray, config=custom_config)
     txt_norm = try_text.lower()
     return any(k in txt_norm for k in failed_keywords)
 
