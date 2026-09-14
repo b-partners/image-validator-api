@@ -3,7 +3,6 @@ import io
 import json
 
 import cv2
-import pytesseract
 import numpy as np
 from PIL import Image
 
@@ -28,8 +27,8 @@ def is_image_corrupted(base64_img):
         img_text = Image.open(io.BytesIO(img_bytes))
         img_blank = np.array(img_text)
 
-        if image_contains_failed_text(img_text) :
-            print("Image contains failed text")
+        if image_contains_failed_pattern(img_text):
+            print("Image contains failed pattern (red cross)")
             return True
         if is_img_blank(img_blank):
             print("Image is blank")
@@ -41,21 +40,21 @@ def is_image_corrupted(base64_img):
         print(f"Image corruption detected: {str(e)}")
         return True
 
-def image_contains_failed_text(img):
-    """Retourne True si l'image contient un mot-clé d'échec."""
-    failed_keywords = ("failed", "wmts", "wnis", "wmis", "writs", "wm", "wn", "ed", "ail", "fail", "il")
+def image_contains_failed_pattern(img):
+    """Retourne True si l'image contient le motif de croix rouges diagonales
+    caracteristique des tuiles WMTS/PCRS manquantes (fiable meme quand l'OCR
+    du texte "Failed" echoue)."""
+    arr = np.array(img.convert("RGB"))
+    r, g, b = arr[:, :, 0].astype(int), arr[:, :, 1].astype(int), arr[:, :, 2].astype(int)
+    red_mask = ((r > 150) & (r - g > 40) & (r - b > 40)).astype(np.uint8) * 255
 
-    gray = np.array(img.convert("L"))
+    h, w = red_mask.shape
+    diagonal = (h ** 2 + w ** 2) ** 0.5
+    min_line_length = int(diagonal * 0.25)
 
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
-
-    custom_config = r'--oem 3 --psm 6'
-    try_text = pytesseract.image_to_string(thresh, config=custom_config)
-
-    txt_norm = try_text.lower().strip()
-    # print(f"[DEBUG] OCR result: '{txt_norm}'")
-
-    return any(k in txt_norm for k in failed_keywords)
+    lines = cv2.HoughLinesP(red_mask, 1, np.pi / 180, threshold=60,
+                             minLineLength=min_line_length, maxLineGap=15)
+    return lines is not None
 
 def is_img_blank(img):
     if np.all(img == 0) or np.all(img == 255):

@@ -1,11 +1,5 @@
 FROM python:3.12-slim
 
-# Install tesseract
-RUN apt-get update && \
-    apt-get install -y tesseract-ocr && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 # Install Lambda runtime
 RUN pip install awslambdaric
 
