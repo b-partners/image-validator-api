@@ -43,7 +43,7 @@ def is_image_corrupted(base64_img):
 
 def image_contains_failed_text(img):
     """Retourne True si l'image contient un mot-clé d'échec."""
-    failed_keywords = ("failed", "wmts")
+    failed_keywords = ("failed", "wmts", "wnis", "wmis", "writs", "wm", "wn", "ed", "ail", "fail", "il")
 
     gray = np.array(img.convert("L"))
 
