@@ -41,20 +41,16 @@ def is_image_corrupted(base64_img):
         return True
 
 def image_contains_failed_pattern(img):
-    """Retourne True si l'image contient le motif de croix rouges diagonales
-    caracteristique des tuiles WMTS/PCRS manquantes (fiable meme quand l'OCR
-    du texte "Failed" echoue)."""
-    arr = np.array(img.convert("RGB"))
-    r, g, b = arr[:, :, 0].astype(int), arr[:, :, 1].astype(int), arr[:, :, 2].astype(int)
-    red_mask = ((r > 150) & (r - g > 40) & (r - b > 40)).astype(np.uint8) * 255
+    """Retourne True si l'image contient le watermark rose/magenta des tuiles
+    WMTS/PCRS manquantes ("Failed: wmts_..." + croix diagonales). Cette teinte
+    est distincte du rouge-brique des toits/vehicules et le ratio de pixels
+    est independant de la resolution ou de la densite de la grille de tuiles,
+    contrairement a une detection par longueur de segment."""
+    hsv = cv2.cvtColor(np.array(img.convert("RGB")), cv2.COLOR_RGB2HSV)
+    h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    watermark_mask = (h >= 168) & (s >= 40) & (s <= 210) & (v >= 150)
 
-    h, w = red_mask.shape
-    diagonal = (h ** 2 + w ** 2) ** 0.5
-    min_line_length = int(diagonal * 0.25)
-
-    lines = cv2.HoughLinesP(red_mask, 1, np.pi / 180, threshold=60,
-                             minLineLength=min_line_length, maxLineGap=15)
-    return lines is not None
+    return watermark_mask.mean() > 0.003
 
 def is_img_blank(img):
     if np.all(img == 0) or np.all(img == 255):
