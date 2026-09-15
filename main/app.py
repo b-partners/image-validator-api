@@ -3,6 +3,7 @@ import io
 import json
 
 import cv2
+import pytesseract
 import numpy as np
 from PIL import Image
 
@@ -27,8 +28,8 @@ def is_image_corrupted(base64_img):
         img_text = Image.open(io.BytesIO(img_bytes))
         img_blank = np.array(img_text)
 
-        if image_contains_failed_pattern(img_text):
-            print("Image contains failed pattern (red cross)")
+        if image_contains_failed_text(img_text):
+            print("Image contains failed text")
             return True
         if is_img_blank(img_blank):
             print("Image is blank")
@@ -40,17 +41,36 @@ def is_image_corrupted(base64_img):
         print(f"Image corruption detected: {str(e)}")
         return True
 
-def image_contains_failed_pattern(img):
-    """Retourne True si l'image contient le watermark rose/magenta des tuiles
-    WMTS/PCRS manquantes ("Failed: wmts_..." + croix diagonales). Cette teinte
-    est distincte du rouge-brique des toits/vehicules et le ratio de pixels
-    est independant de la resolution ou de la densite de la grille de tuiles,
-    contrairement a une detection par longueur de segment."""
-    hsv = cv2.cvtColor(np.array(img.convert("RGB")), cv2.COLOR_RGB2HSV)
-    h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
-    watermark_mask = (h >= 168) & (s >= 40) & (s <= 210) & (v >= 150)
+def image_contains_failed_text(img):
+    """Retourne True si l'image contient un mot-cle d'echec."""
+    failed_keywords = ("failed", "wmts")
 
-    return watermark_mask.mean() > 0.003
+    gray = np.array(img.convert("L"))
+
+    # Upscale : Tesseract est nettement plus fiable si le texte est grand.
+    # INTER_LINEAR est plus rapide que INTER_CUBIC pour un resultat quasi identique ici.
+    scale = 1.5
+    gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
+
+    # Otsu au lieu d'un seuil fixe : s'adapte au contraste de chaque image
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    thresh_inv = cv2.bitwise_not(thresh)
+
+    # Un seul PSM (6), mais les deux polarites (texte sombre/clair) car c'est
+    # ce qui fait le plus varier la lecture selon les images
+    candidates = [
+        (thresh, r'--oem 3 --psm 6'),
+        (thresh_inv, r'--oem 3 --psm 6'),
+    ]
+
+    for image_variant, config in candidates:
+        try_text = pytesseract.image_to_string(image_variant, config=config)
+        txt_norm = try_text.lower().strip()
+
+        if any(k in txt_norm for k in failed_keywords):
+            return True
+
+    return False
 
 def is_img_blank(img):
     if np.all(img == 0) or np.all(img == 255):
