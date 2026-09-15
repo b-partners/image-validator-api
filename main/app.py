@@ -78,7 +78,7 @@ def is_img_blank(img):
     return False
 
 if __name__ == "__main__":
-    with open("saint-denis.jpeg", "rb") as f:
+    with open("../images-dataset/saint-denis.jpeg", "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode("utf-8")
 
     event = {
