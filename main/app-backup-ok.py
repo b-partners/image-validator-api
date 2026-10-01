@@ -28,19 +28,19 @@ def is_image_corrupted(base64_img):
         img_text = Image.open(io.BytesIO(img_bytes))
         img_blank = np.array(img_text)
 
-        # Test d'image vide en premier : quelques ms, evite les deux passes OCR
-        if is_img_blank(img_blank):
-            print("Image is blank")
-            return True
         if image_contains_failed_text(img_text):
             print("Image contains failed text")
+            return True
+        if is_img_blank(img_blank):
+            print("Image is blank")
             return True
         return False
 
     except Exception as e:
-        # If any exception occurs during decoding/processing, image is likely corrupted.jpeg
+        # If any exception occurs during decoding/processing, image is likely corrupted.
         print(f"Image corruption detected: {str(e)}")
         return True
+
 
 def image_contains_failed_text(img):
     """Retourne True si l'image contient un mot-cle d'echec."""
@@ -73,13 +73,15 @@ def image_contains_failed_text(img):
 
     return False
 
+
 def is_img_blank(img):
     if np.all(img == 0) or np.all(img == 255):
         return True
     return False
 
+
 if __name__ == "__main__":
-    with open("../images-dataset/saint-denis.jpeg", "rb") as f:
+    with open("../images-dataset/failed_MARNE_2026.jpg", "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode("utf-8")
 
     event = {

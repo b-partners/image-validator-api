@@ -28,12 +28,11 @@ def is_image_corrupted(base64_img):
         img_text = Image.open(io.BytesIO(img_bytes))
         img_blank = np.array(img_text)
 
-        # Test d'image vide en premier : quelques ms, evite les deux passes OCR
+        if image_contains_failed_text(img_text) :
+            print("Image contains failed text")
+            return True
         if is_img_blank(img_blank):
             print("Image is blank")
-            return True
-        if image_contains_failed_text(img_text):
-            print("Image contains failed text")
             return True
         return False
 
@@ -43,35 +42,20 @@ def is_image_corrupted(base64_img):
         return True
 
 def image_contains_failed_text(img):
-    """Retourne True si l'image contient un mot-cle d'echec."""
+    """Retourne True si l'image contient un mot-clé d'échec."""
     failed_keywords = ("failed", "wmts")
 
     gray = np.array(img.convert("L"))
 
-    # Upscale : Tesseract est nettement plus fiable si le texte est grand.
-    # INTER_LINEAR est plus rapide que INTER_CUBIC pour un resultat quasi identique ici.
-    scale = 1.5
-    gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
 
-    # Otsu au lieu d'un seuil fixe : s'adapte au contraste de chaque image
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    thresh_inv = cv2.bitwise_not(thresh)
+    custom_config = r'--oem 3 --psm 6'
+    try_text = pytesseract.image_to_string(thresh, config=custom_config)
 
-    # Un seul PSM (6), mais les deux polarites (texte sombre/clair) car c'est
-    # ce qui fait le plus varier la lecture selon les images
-    candidates = [
-        (thresh, r'--oem 3 --psm 6'),
-        (thresh_inv, r'--oem 3 --psm 6'),
-    ]
+    txt_norm = try_text.lower().strip()
+    # print(f"[DEBUG] OCR result: '{txt_norm}'")
 
-    for image_variant, config in candidates:
-        try_text = pytesseract.image_to_string(image_variant, config=config)
-        txt_norm = try_text.lower().strip()
-
-        if any(k in txt_norm for k in failed_keywords):
-            return True
-
-    return False
+    return any(k in txt_norm for k in failed_keywords)
 
 def is_img_blank(img):
     if np.all(img == 0) or np.all(img == 255):
@@ -79,7 +63,7 @@ def is_img_blank(img):
     return False
 
 if __name__ == "__main__":
-    with open("../images-dataset/saint-denis.jpeg", "rb") as f:
+    with open("../images-dataset/HAUTE-SAVOIE_2025_5CM.jpg", "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode("utf-8")
 
     event = {

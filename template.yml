@@ -12,7 +12,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
-      MemorySize: 512
+      # 1769 Mo = 1 vCPU complet : l'OCR est limite par le CPU (~5x plus rapide qu'a 512 Mo)
+      MemorySize: 1769
       Timeout: 90
       FunctionUrlConfig:
         AuthType: NONE
