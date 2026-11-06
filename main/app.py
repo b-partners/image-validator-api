@@ -32,6 +32,11 @@ def is_image_corrupted(base64_img):
         if is_img_blank(img_blank):
             print("Image is blank")
             return True
+        # Detection par pixels (quelques ms) avant l'OCR : la lecture Tesseract du
+        # filigrane "Failed: wmts_..." depend de la taille du texte et la rate parfois
+        if image_contains_failed_tile_pattern(img_text):
+            print("Image contains failed tile pattern")
+            return True
         if image_contains_failed_text(img_text):
             print("Image contains failed text")
             return True
@@ -41,6 +46,40 @@ def is_image_corrupted(base64_img):
         # If any exception occurs during decoding/processing, image is likely corrupted.jpeg
         print(f"Image corruption detected: {str(e)}")
         return True
+
+FAILED_PATTERN_GRID = 8
+FAILED_PATTERN_MIN_CELLS = 6
+
+
+def image_contains_failed_tile_pattern(img):
+    """Retourne True si l'image contient le motif d'echec GeoServer : traits rouges
+    satures (croix + texte "Failed: wmts_...") sur fond blanc.
+
+    On ne garde que les pixels rouges entoures de blanc, puis on exige que le motif
+    s'etale sur plusieurs cellules quasi blanches de l'image : un logo ou un objet
+    rouge sur un toit blanc ou de la neige reste localise, le motif d'echec non.
+    """
+    rgb = np.asarray(img.convert("RGB"), dtype=np.int16)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    height, width = r.shape
+
+    white = (np.minimum(np.minimum(r, g), b) >= 215).astype(np.float32)
+    window = max(15, (min(height, width) // 32) | 1)
+    white_background = cv2.blur(white, (window, window)) >= 0.80
+    saturated_red = (r >= 140) & (r - g >= 45) & (r - b >= 45)
+    red_on_white = saturated_red & white_background
+
+    rows = np.linspace(0, height, FAILED_PATTERN_GRID + 1).astype(int)
+    cols = np.linspace(0, width, FAILED_PATTERN_GRID + 1).astype(int)
+    failed_cells = 0
+    for i in range(FAILED_PATTERN_GRID):
+        for j in range(FAILED_PATTERN_GRID):
+            cell = (slice(rows[i], rows[i + 1]), slice(cols[j], cols[j + 1]))
+            if white[cell].mean() >= 0.85 and red_on_white[cell].mean() >= 0.0005:
+                failed_cells += 1
+
+    return failed_cells >= FAILED_PATTERN_MIN_CELLS
+
 
 def image_contains_failed_text(img):
     """Retourne True si l'image contient un mot-cle d'echec."""
